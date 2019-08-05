@@ -163,23 +163,7 @@ fn main() {
 
 fn eval(expr: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
     let expr2 = Box::new((*expr).clone());
-    let expr3 = Box::new((*expr).clone());
-    let expr4 = Box::new((*expr).clone());
-    let expr5 = Box::new((*expr).clone());
-    let expr6 = Box::new((*expr).clone());
-    let expr7 = Box::new((*expr).clone());
-    let expr8 = Box::new((*expr).clone());
-    let expr9 = Box::new((*expr).clone());
-    let expr10 = Box::new((*expr).clone());
     let env2 = Box::new((*env).clone());
-    let env3 = Box::new((*env).clone());
-    let env4 = Box::new((*env).clone());
-    let env5 = Box::new((*env).clone());
-    let env6 = Box::new((*env).clone());
-    let env7 = Box::new((*env).clone());
-    let env8 = Box::new((*env).clone());
-    let env9 = Box::new((*env).clone());
-    let env10 = Box::new((*env).clone());
     match *expr {
         Expr::Atom(_atom) => assoc(expr2, env),
         Expr::Cons(car_elem, _cdr) => match *car_elem {
@@ -189,15 +173,15 @@ fn eval(expr: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
                     if symbol == "quote" {
                         cadr(expr2)
                     } else if symbol == "atom" {
-                        atom(eval(cadr(expr2), env2))
+                        atom(eval(car(_cdr), env))
                     } else if symbol == "eq" {
-                        eq(eval(cadr(expr2), env3), eval(caddr(expr3), env4))
+                        eq(eval(car(_cdr), env), eval(caddr(expr2), env2))
                     } else if symbol == "car" {
-                        car(eval(cadr(expr2), env6))
+                        car(eval(car(_cdr), env))
                     } else if symbol == "cdr" {
-                        cdr(eval(cadr(expr2), env7))
+                        cdr(eval(car(_cdr), env))
                     } else if symbol == "cons" {
-                        cons(eval(cadr(expr2), env8), eval(caddr(expr3), env9))
+                        cons(eval(car(_cdr), env), eval(caddr(expr2), env2))
                     } else {
                         Box::new(Expr::Nil)
                     }
