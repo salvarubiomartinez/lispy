@@ -1,76 +1,63 @@
-use std::io;
+extern crate regex;
+use std::io::BufRead;
+use regex::Regex;
+// use std::io;
 #[derive(Debug, Clone)]
 enum Expr {
     Cons(Box<Expr>, Box<Expr>),
-    Atom(Atom),
+    Symbol(String),
+    Number(i32),
     Nil,
     T,
 }
 
-#[derive(Debug, Clone)]
-enum Atom {
-    //    I32(i32),
-    //    Text(String),
-    Symbol(String),
-}
-
-fn cond(expr: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
-    let env2 = Box::new((*env).clone());
-    match *expr {
-        Expr::Cons(car, cdr) => {
-            let eval_cond = eval(car, env);
-            match *eval_cond {
-                Expr::T => eval(cadr(cdr), env2),
-                _ => Box::new(Expr::Nil),
-            }
-        }
-        _ => Box::new(Expr::Atom(Atom::Symbol(String::from(
-            "Error. Element is not a list",
-        )))),
-    }
-}
-
-fn cond2(expr1: Box<Expr>, expr2: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
-    let env2 = Box::new((*env).clone());
-    let env3 = Box::new((*env).clone());
-    match *expr1 {
-        Expr::Cons(car, cdr) => {
-            let eval_cond = eval(car, env);
-            match *eval_cond {
-                Expr::T => eval(cadr(cdr), env2),
-                _ => cond(expr2, env3),
-            }
-        }
-        _ => Box::new(Expr::Atom(Atom::Symbol(String::from(
-            "Error. Element is not a list",
-        )))),
-    }
-}
-
 fn atom(expr: Box<Expr>) -> Box<Expr> {
     match *expr {
-        Expr::Atom(_atom) => Box::new(Expr::T),
-        _ => Box::new(Expr::Nil),
+        Expr::Cons(_head, _tail) => Box::new(Expr::Nil),
+        _ => Box::new(Expr::T),
     }
 }
 
 fn eq(a: Box<Expr>, b: Box<Expr>) -> Box<Expr> {
     match *a {
-        Expr::Atom(atom_a) => match atom_a {
-            Atom::Symbol(value_a) => match *b {
-                Expr::Atom(atom_b) => match atom_b {
-                    Atom::Symbol(value_b) => {
-                        if value_a == value_b {
-                            Box::new(Expr::T)
-                        } else {
-                            Box::new(Expr::Nil)
-                        }
-                    }
-                },
-                _ => Box::new(Expr::Nil),
-            },
+        Expr::Symbol(value_a) => match *b {
+            Expr::Symbol(value_b) => {
+                if value_a == value_b {
+                    Box::new(Expr::T)
+                } else {
+                    Box::new(Expr::Nil)
+                }
+            }
+            _ => Box::new(Expr::Nil),
         },
-        _ => Box::new(Expr::Nil),
+        Expr::Number(num_a) => match *b {
+            Expr::Number(num_b) => {
+                if num_a == num_b {
+                    Box::new(Expr::T)
+                } else {
+                    Box::new(Expr::Nil)
+                }
+            }
+            _ => Box::new(Expr::Nil),
+        },
+        Expr::T => match *b {
+            Expr::T => Box::new(Expr::T),
+            _ => Box::new(Expr::Nil),
+        },
+        Expr::Nil => match *b {
+            Expr::Nil => Box::new(Expr::T),
+            _ => Box::new(Expr::Nil),
+        },
+        Expr::Cons(head_a, tail_a) => match *b {
+            Expr::Cons(head_b, tail_b) => {
+                let eq_head = eq(head_a, head_b);
+                match *eq_head {
+                    Expr::T => eq(tail_a, tail_b),
+                    _ => Box::new(Expr::Nil),
+                }
+            }
+            _ => Box::new(Expr::Nil),
+        },
     }
 }
 
@@ -80,21 +67,15 @@ fn cons(expr1: Box<Expr>, expr2: Box<Expr>) -> Box<Expr> {
 
 fn car(expr: Box<Expr>) -> Box<Expr> {
     match *expr {
-        Expr::Atom(_atom) => Box::new(Expr::Atom(Atom::Symbol(String::from(
-            "Error. Element is not a list",
-        )))),
         Expr::Cons(car, _cdr) => car,
-        _ => Box::new(Expr::Nil),
+        _ => Box::new(Expr::Symbol(String::from("Error. Element is not a list"))),
     }
 }
 
 fn cdr(expr: Box<Expr>) -> Box<Expr> {
     match *expr {
-        Expr::Atom(_atom) => Box::new(Expr::Atom(Atom::Symbol(String::from(
-            "Error. Element is not a list",
-        )))),
         Expr::Cons(_car, cdr) => cdr,
-        _ => Box::new(Expr::Nil),
+        _ => Box::new(Expr::Symbol(String::from("Error. Element is not a list"))),
     }
 }
 
@@ -116,11 +97,6 @@ fn caddr(expr: Box<Expr>) -> Box<Expr> {
 
 fn assoc(x: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
     let x2 = Box::new((*x).clone());
-    let env2 = Box::new((*env).clone());
-    let env3 = Box::new((*env).clone());
-    let env4 = Box::new((*env).clone());
-    let env5 = Box::new((*env).clone());
-
     match *env {
         Expr::Cons(first, tail) => match *first {
             Expr::Cons(f, t) => {
@@ -130,70 +106,181 @@ fn assoc(x: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
                     _ => assoc(x2, tail),
                 }
             }
-            _ => Box::new(Expr::Atom(Atom::Symbol(String::from(
-                "Error. Element is not a list",
-            )))),
+            _ => Box::new(Expr::Symbol(String::from("Error. Element is not a list"))),
         },
         Expr::Nil => Box::new(Expr::Nil),
-        _ => Box::new(Expr::Atom(Atom::Symbol(String::from(
-            "Error. Element is not a list",
-        )))),
+        _ => Box::new(Expr::Symbol(String::from("Error. Element is not a list"))),
+    }
+}
+
+fn evcond(expr: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
+    let cond = eval(caar(expr.clone()), env.clone());
+    match *cond {
+        Expr::Nil => evcond(cdr(expr), env),
+        _ => eval(cadar(expr), env),
     }
 }
 
 fn main() {
-    let value = assoc(
-        Box::new(Expr::Atom(Atom::Symbol(String::from("hola")))),
-        Box::new(Expr::Cons(
-            Box::new(Expr::Cons(
-                Box::new(Expr::Atom(Atom::Symbol(String::from("hola")))),
-                Box::new(Expr::Cons(
-                    Box::new(Expr::Atom(Atom::Symbol(String::from("pepe")))),
-                    Box::new(Expr::Nil),
-                )),
-            )),
-            Box::new(Expr::Nil),
-        )),
+    let value = eval(
+        parse("hola".to_string()),
+        parse("((uno 34) (hola 66))".to_string()),
     );
     println!("your value: {:?}", value);
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).expect("error reading");
-    println!("your input: {}", input);
+    let mut result: Box<Expr>;
+    loop {
+        //       let mut input = String::new();
+        //        io::stdin().lock..expect("error reading");
+        let input = std::io::stdin();
+        for line in input.lock().lines() {
+            // here line is a String without the trailing newline
+            let parsed = parse(line.unwrap());
+            println!("parsed: {:?}", parsed);
+            result = eval(parsed, parse("((uno 34) (hola 66))".to_string()));
+            println!("{:?}", result);
+        }
+    }
 }
 
 fn eval(expr: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
-    let expr2 = Box::new((*expr).clone());
-    let env2 = Box::new((*env).clone());
+    //    let expr2 = Box::new((*expr).clone());
+    //    let env2 = Box::new((*env).clone());
     match *expr {
-        Expr::Atom(_atom) => assoc(expr2, env),
-        Expr::Cons(car_elem, _cdr) => match *car_elem {
-            Expr::Atom(elem) => match elem {
-                Atom::Symbol(symbol) => {
-                    println!("your value: {:?}", (symbol).clone());
-                    if symbol == "quote" {
-                        cadr(expr2)
-                    } else if symbol == "atom" {
-                        atom(eval(car(_cdr), env))
-                    } else if symbol == "eq" {
-                        eq(eval(car(_cdr), env), eval(caddr(expr2), env2))
-                    } else if symbol == "car" {
-                        car(eval(car(_cdr), env))
-                    } else if symbol == "cdr" {
-                        cdr(eval(car(_cdr), env))
-                    } else if symbol == "cons" {
-                        cons(eval(car(_cdr), env), eval(caddr(expr2), env2))
-                    } else {
-                        Box::new(Expr::Nil)
-                    }
+        Expr::T => Box::new(Expr::T),
+        Expr::Nil => Box::new(Expr::Nil),
+        Expr::Number(num) => Box::new(Expr::Number(num)),
+        Expr::Symbol(symbol) => assoc(Box::new(Expr::Symbol(symbol)), env),
+        Expr::Cons(car_elem, cdr_elem) => match *car_elem {
+            Expr::Symbol(symbol) => {
+                //      println!("your value: {:?}", (symbol).clone());
+                if symbol == "quote" {
+                    car(cdr_elem)
+                } else if symbol == "atom" {
+                    atom(eval(car(cdr_elem), env))
+                } else if symbol == "eq" {
+                    eq(
+                        eval(car(cdr_elem.clone()), env.clone()),
+                        eval(cadr(cdr_elem), env),
+                    )
+                } else if symbol == "car" {
+                    car(eval(car(cdr_elem), env))
+                } else if symbol == "cdr" {
+                    cdr(eval(car(cdr_elem), env))
+                } else if symbol == "cons" {
+                    cons(
+                        eval(car(cdr_elem.clone()), env.clone()),
+                        eval(cadr(cdr_elem), env),
+                    )
+                } else if symbol == "cond" {
+                    evcond(cdr_elem, env)
+                } else {
+                    eval(
+                        cons(assoc(Box::new(Expr::Symbol(symbol)), env.clone()), cdr_elem),
+                        env,
+                    )
                 }
-            },
-            Expr::Cons(car1, _cdr1) => match *car1 {
-                Expr::Atom(_atom) => Box::new(Expr::Nil),
-                _ => Box::new(Expr::Nil),
-            },
+            }
+            //       Expr::Cons(car1, _cdr1) => match *car1 {
+            //           Expr::Symbol(symbol) => {
+            //               if symbol == "label" {
+            //
+            //                   eval()
+
+            //               } else if symbol == "lambda" {
+            //
+            //               } else {
+
+            //               }
+            //           }
+            //           _ => Box::new(Expr::Nil),
+            //       },
             _ => Box::new(Expr::Nil),
         },
-        Expr::Nil => Box::new(Expr::Nil),
-        Expr::T => Box::new(Expr::Nil),
+    }
+}
+
+fn parse_s_expr(expr: String) -> Vec<String> {
+    let length = expr.len();
+    let subexpr = &expr[1..(length - 1)];
+    //   println!("subexpr : {:?}", subexpr);
+
+    let paren_regexp = Regex::new(&format!("\\{}|\\{}", "(", ")")).unwrap();
+    let mut result = Vec::new();
+    let mut pos = 0;
+    let mut depth = 0;
+    for cap in paren_regexp.find_iter(subexpr) {
+        // println!("your value: {:?}", cap);
+        let start = cap.start();
+        //  println!("your start: {:?}", start);
+        let end = cap.end();
+        //  println!("your end: {:?}", end);
+        let paren = subexpr.chars().nth(start).unwrap();
+        //  println!("your paren: {:?}", paren);
+
+        if depth == 0 {
+            let first_tokens = subexpr[pos..start]
+                .split(char::is_whitespace)
+                .filter(|s| !s.is_empty());
+
+            result.extend(first_tokens);
+            pos = start;
+        }
+
+        if paren == '(' {
+            depth += 1;
+        } else if paren == ')' {
+            depth -= 1;
+            if depth == 0 {
+                result.push(&subexpr[pos..end]);
+                pos = end;
+            }
+        }
+    }
+    let final_tokens = subexpr[pos..(subexpr.len())]
+        .split(char::is_whitespace)
+        .filter(|s| !s.is_empty());
+
+    result.extend(final_tokens);
+    //    println!("your result: {:?}", result);
+    result.iter().map(|s| s.to_string()).collect()
+}
+
+fn is_atom(str: String) -> bool {
+    let initLetter = &str[0..1];
+    initLetter != "("
+}
+
+fn parse_atom(atom: String) -> Box<Expr> {
+    let optionInt = atom.parse::<i32>();
+    match optionInt {
+        Ok(int) => Box::new(Expr::Number(int)),
+        Err(error) => {
+            if atom == "T" {
+                Box::new(Expr::T)
+            } else {
+                Box::new(Expr::Symbol(atom))
+            }
+        }
+    }
+}
+
+fn parse_list(mut list: Vec<String>) -> Box<Expr> {
+    if list.len() == 0 {
+        Box::new(Expr::Nil)
+    } else {
+        let next = list.remove(0);
+        //      println!("next: {:?}", next);
+        Box::new(Expr::Cons(parse(next), parse_list(list)))
+    }
+}
+
+fn parse(expr: String) -> Box<Expr> {
+    //   println!("expr: {:?}", expr);
+    if is_atom(expr.clone()) {
+        //    println!("is_atom: {:?}", expr);
+        parse_atom(expr)
+    } else {
+        let mut elem_list = parse_s_expr(expr);
+        parse_list(elem_list)
     }
 }
