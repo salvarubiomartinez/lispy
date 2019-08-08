@@ -271,10 +271,10 @@ fn eval(expr: Box<Expr>, env: Box<Expr>) -> (Box<Expr>, Box<Expr>) {
                     let value = eval(cadr(cdr_elem.clone()), env.clone()).0;
                     let name = car(cdr_elem);
                     (value.clone(), cons(list(name, value), env))
-                } else if symbol == "LAMBDA" {
+                } else if symbol == "LAMBDA" || symbol == "MACRO" {
                     (cons(car_elem, cdr_elem), env)
                 } else if symbol == "EVAL" {
-                    eval(car(cdr_elem), env)
+                    eval(eval(car(cdr_elem), env.clone()).0, env)
                 } else {
                     (
                         eval(
