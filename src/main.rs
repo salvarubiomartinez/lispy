@@ -19,6 +19,8 @@ fn atom(expr: Box<Expr>) -> Box<Expr> {
 }
 
 fn eq(a: Box<Expr>, b: Box<Expr>) -> Box<Expr> {
+    //    println!("eq a. {:?}", print_car(a.clone()));
+    //    println!("eq b. {:?}", print_car(b.clone()));
     match *a {
         Expr::Symbol(value_a) => match *b {
             Expr::Symbol(value_b) => {
@@ -97,9 +99,9 @@ fn cadar(expr: Box<Expr>) -> Box<Expr> {
     car(cdr(car(expr)))
 }
 
-fn caddr(expr: Box<Expr>) -> Box<Expr> {
-    car(cdr(cdr(expr)))
-}
+//fn caddr(expr: Box<Expr>) -> Box<Expr> {
+//    car(cdr(cdr(expr)))
+//}
 
 fn assoc(x: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
     let x2 = Box::new((*x).clone());
@@ -117,7 +119,10 @@ fn assoc(x: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
                 Box::new(Expr::Nil)
             }
         },
-        Expr::Nil => Box::new(Expr::Nil),
+        Expr::Nil => {
+            println!("Error. {:?} is undefined", print_car(x));
+            Box::new(Expr::Nil)
+        }
         _ => {
             println!("Error. {:?} is not a list", print_car(env));
             Box::new(Expr::Nil)
@@ -204,7 +209,7 @@ fn evlis(arguments: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
 
 fn main() {
     let mut result: (Box<Expr>, Box<Expr>);
-    let mut env: Box<Expr> = parse("((hola 10))".to_string());
+    let mut env: Box<Expr> = parse("((QUOTE QUOTE) (ATOM ATOM) (EQ EQ) (CAR CAR) (CDR CDR) (CONS CONS) (LIST LIST) (COND COND) (PLUS PLUS) (LAMBDA LAMBDA) (MACRO MACRO) (SETQ SETQ) (NIL ()))".to_string());
     loop {
         //       let mut input = String::new();
         //        io::stdin().lock..expect("error reading");
@@ -227,7 +232,26 @@ fn eval(expr: Box<Expr>, env: Box<Expr>) -> (Box<Expr>, Box<Expr>) {
         Expr::T => (Box::new(Expr::T), env),
         Expr::Nil => (Box::new(Expr::Nil), env),
         Expr::Number(num) => (Box::new(Expr::Number(num)), env),
-        Expr::Symbol(symbol) => (assoc(Box::new(Expr::Symbol(symbol)), env.clone()), env),
+        Expr::Symbol(symbol) => {
+            //    let init_letter = &symbol[0..1];
+            //    let rest_word = &symbol[1..(symbol.len())];
+            //    if init_letter != "\'" {
+            (assoc(Box::new(Expr::Symbol(symbol)), env.clone()), env)
+            //     } else {
+            //         (
+            //             eval(
+            //                 list(
+            //                     Box::new(Expr::Symbol("QUOTE".to_string())),
+            //                     Box::new(Expr::Symbol(rest_word.to_string())),
+            //                 ),
+            //                 env.clone(),
+            //             )
+            //             .0,
+            //             env,
+            //         )
+            //     }
+        }
+
         Expr::Cons(car_elem, cdr_elem) => match *(car_elem.clone()) {
             Expr::Symbol(symbol) => {
                 //      println!("your value: {:?}", (symbol).clone());
@@ -235,6 +259,8 @@ fn eval(expr: Box<Expr>, env: Box<Expr>) -> (Box<Expr>, Box<Expr>) {
                     (car(cdr_elem), env)
                 } else if symbol == "ATOM" {
                     (atom(eval(car(cdr_elem), env.clone()).0), env)
+                //    } else if symbol == "NIL" {
+                //        (Box::new(Expr::Nil), env)
                 } else if symbol == "EQ" {
                     (
                         eq(
@@ -270,11 +296,16 @@ fn eval(expr: Box<Expr>, env: Box<Expr>) -> (Box<Expr>, Box<Expr>) {
                 } else if symbol == "SETQ" {
                     let value = eval(cadr(cdr_elem.clone()), env.clone()).0;
                     let name = car(cdr_elem);
+                    println!("setq value {:?}", print_car(value.clone()));
                     (value.clone(), cons(list(name, value), env))
                 } else if symbol == "LAMBDA" || symbol == "MACRO" {
                     (cons(car_elem, cdr_elem), env)
                 } else if symbol == "EVAL" {
-                    eval(eval(car(cdr_elem), env.clone()).0, env)
+                    let newContext = eval(car(cdr_elem), env.clone());
+                    let resp = eval(newContext.0, env);
+                    println!("eval resp {:?}", print_car(resp.0.clone()));
+                    println!("eval env {:?}", print_car(resp.1.clone()));
+                    resp
                 } else {
                     (
                         eval(
@@ -392,19 +423,30 @@ fn parse_s_expr(expr: String) -> Vec<String> {
 }
 
 fn is_atom(str: String) -> bool {
-    let initLetter = &str[0..1];
-    initLetter != "("
+    let init_letter = &str[0..1];
+    init_letter != "("
 }
 
 fn parse_atom(atom: String) -> Box<Expr> {
-    let optionInt = atom.parse::<i32>();
-    match optionInt {
+    let option_int = atom.parse::<i32>();
+    match option_int {
         Ok(int) => Box::new(Expr::Number(int)),
         Err(_error) => {
-            if atom == "T" {
+            if atom == "NIL" {
+                Box::new(Expr::Nil)
+            } else if atom == "T" {
                 Box::new(Expr::T)
             } else {
-                Box::new(Expr::Symbol(atom))
+                let init_letter = &atom[0..1];
+                let rest_word = &atom[1..(atom.len())];
+                if init_letter != "\'" {
+                    Box::new(Expr::Symbol(atom))
+                } else {
+                    list(
+                        Box::new(Expr::Symbol("QUOTE".to_string())),
+                        Box::new(Expr::Symbol(rest_word.to_string())),
+                    )
+                }
             }
         }
     }
