@@ -279,25 +279,25 @@ fn eval(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Exp
                     arithmetic_op(
                         eval(car(cdr_elem.clone()), env, global_env),
                         eval(cadr(cdr_elem), env, global_env),
-                        &|a, b| a + b
+                        &|a, b| a + b,
                     )
                 } else if symbol == "PROD" {
                     arithmetic_op(
                         eval(car(cdr_elem.clone()), env, global_env),
                         eval(cadr(cdr_elem), env, global_env),
-                        &|a, b| a * b
+                        &|a, b| a * b,
                     )
                 } else if symbol == "DIFF" {
                     arithmetic_op(
                         eval(car(cdr_elem.clone()), env, global_env),
                         eval(cadr(cdr_elem), env, global_env),
-                        &|a, b| a - b
+                        &|a, b| a - b,
                     )
                 } else if symbol == "QUOT" {
                     arithmetic_op(
                         eval(car(cdr_elem.clone()), env, global_env),
                         eval(cadr(cdr_elem), env, global_env),
-                        &|a, b| a / b
+                        &|a, b| a / b,
                     )
                 } else if symbol == "SETQ" {
                     let value = eval(cadr(cdr_elem.clone()), env, global_env);
@@ -339,16 +339,28 @@ fn eval(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Exp
                     } else if symbol == "LAMBDA" {
                         eval(
                             cadr(cdr1.clone()),
-                            &append(
-                                pair(car(cdr1), evlis(cdr_elem, env, global_env)),
-                                (*env).clone(),
+                            &cons(
+                                list(
+                                    Box::new(Expr::Symbol("&ARGS".to_string())),
+                                    evlis(cdr_elem.clone(), env, global_env),
+                                ),
+                                append(
+                                    pair(car(cdr1), evlis(cdr_elem, env, global_env)),
+                                    (*env).clone(),
+                                ),
                             ),
                             global_env,
                         )
                     } else if symbol == "MACRO" {
                         eval(
                             cadr(cdr1.clone()),
-                            &append(pair(car(cdr1), cdr_elem), (*env).clone()),
+                            &cons(
+                                list(
+                                    Box::new(Expr::Symbol("&ARGS".to_string())),
+                                    cdr_elem.clone(),
+                                ),
+                                append(pair(car(cdr1), cdr_elem), (*env).clone()),
+                            ),
                             global_env,
                         )
                     } else {
