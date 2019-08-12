@@ -64,6 +64,13 @@ fn eq(a: Box<Expr>, b: Box<Expr>) -> Box<Expr> {
     }
 }
 
+fn not(expr: Box<Expr>) -> Box<Expr> {
+    match *expr {
+        Expr::Nil => Box::new(Expr::T),
+        _ => Box::new(Expr::Nil),
+    }
+}
+
 fn cons(expr1: Box<Expr>, expr2: Box<Expr>) -> Box<Expr> {
     Box::new(Expr::Cons(expr1, expr2))
 }
@@ -100,9 +107,9 @@ fn cadar(expr: Box<Expr>) -> Box<Expr> {
     car(cdr(car(expr)))
 }
 
-//fn caddr(expr: Box<Expr>) -> Box<Expr> {
-//    car(cdr(cdr(expr)))
-//}
+fn caddr(expr: Box<Expr>) -> Box<Expr> {
+    car(cdr(cdr(expr)))
+}
 
 fn assoc(x: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
     let x2 = Box::new((*x).clone());
@@ -317,6 +324,34 @@ fn eval(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Exp
                     //  println!("eval resp {:?}", print_car(&resp));
                     //  println!("eval env {:?}", print_car(&resp));
                     resp
+                } else if symbol == "REDUCE" {
+                    let f = eval(car(cdr_elem.clone()), env, global_env);
+                    // println!("reduce f {:?}", print_car(&f));
+                    let mut ls = eval(cadr(cdr_elem.clone()), env, global_env);
+                    // println!("reduce ls {:?}", print_car(&ls));
+                    let mut acc = eval(caddr(cdr_elem), env, global_env) ;
+                    // println!("reduce acc {:?}", print_car(&acc));
+                    //    while (not(eq(ls, Box::new(Expr::Nil)))) {\
+                    loop {
+                        match *ls {
+                            Expr::Cons(current, rest) => {
+                                let exp = cons(f.clone(), cons(current, cons(acc, Box::new(Expr::Nil))));
+                       //         println!("reduce loop exp {:?}", print_car(&exp));
+
+                                acc = eval(
+                                    exp,
+                                    env,
+                                    global_env,
+                                );
+                        //        println!("reduce loop acc {:?}", print_car(&acc));
+                                ls = rest;
+                            }
+                            _ => {
+                                break;
+                            }
+                        }
+                    }
+                    acc
                 } else {
                     eval(
                         cons(
