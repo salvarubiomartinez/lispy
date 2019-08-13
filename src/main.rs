@@ -111,6 +111,14 @@ fn caddr(expr: Box<Expr>) -> Box<Expr> {
     car(cdr(cdr(expr)))
 }
 
+fn caadr(expr: Box<Expr>) -> Box<Expr> {
+    car(car(cdr(expr)))
+}
+
+fn cadadr(expr: Box<Expr>) -> Box<Expr> {
+    car(cdr(car(cdr(expr))))
+}
+
 fn assoc(x: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
     let x2 = Box::new((*x).clone());
     match *env {
@@ -195,6 +203,20 @@ fn list(a: Box<Expr>, b: Box<Expr>) -> Box<Expr> {
 }
 
 fn append(x: Box<Expr>, y: Box<Expr>) -> Box<Expr> {
+    //   let mut acc = y;
+    //   let mut ls = x;
+    //   loop {
+    //       match *ls {
+    //           Expr::Cons(head, tail) => {
+    //               ls = cdr(ls);
+    //           },
+
+    //           Expr::Nil => {
+    //               break;
+    //           }
+    //       }
+    //   }
+    //   acc
     match *x {
         Expr::Cons(head, tail) => cons(head, append(tail, y)),
         Expr::Nil => y,
@@ -233,7 +255,7 @@ fn evlis(arguments: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> B
 
 fn main() {
     let mut result: Box<Expr>;
-    let env: &mut Box<Expr> = &mut parse("((QUOTE QUOTE) (ATOM ATOM) (EQ EQ) (CAR CAR) (CDR CDR) (CONS CONS) (LIST LIST) (COND COND) (PLUS PLUS) (PROD PROD) (DIFF DIFF) (QUOT) (QUOT) (LAMBDA LAMBDA) (MACRO MACRO) (SETQ SETQ) (NIL ()))".to_string());
+    let env: &mut Box<Expr> = &mut parse("((QUOTE QUOTE) (ATOM ATOM) (EQ EQ) (CAR CAR) (CDR CDR) (CONS CONS) (LIST LIST) (COND COND) (PLUS PLUS) (PROD PROD) (DIFF DIFF) (QUOT) (QUOT) (LAMBDA LAMBDA) (MACRO MACRO) (SETQ SETQ) (APPEND APPEND) (REDUCE REDUCE) (LOOP LOOP) (NIL ()))".to_string());
     loop {
         //       let mut input = String::new();
         //        io::stdin().lock..expect("error reading");
@@ -324,26 +346,28 @@ fn eval(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Exp
                     //  println!("eval resp {:?}", print_car(&resp));
                     //  println!("eval env {:?}", print_car(&resp));
                     resp
+                } else if symbol == "APPEND" {
+                    append(
+                        eval(car(cdr_elem.clone()), env, global_env),
+                        eval(cadr(cdr_elem), env, global_env),
+                    )
                 } else if symbol == "REDUCE" {
                     let f = eval(car(cdr_elem.clone()), env, global_env);
                     // println!("reduce f {:?}", print_car(&f));
                     let mut ls = eval(cadr(cdr_elem.clone()), env, global_env);
                     // println!("reduce ls {:?}", print_car(&ls));
-                    let mut acc = eval(caddr(cdr_elem), env, global_env) ;
+                    let mut acc = eval(caddr(cdr_elem), env, global_env);
                     // println!("reduce acc {:?}", print_car(&acc));
                     //    while (not(eq(ls, Box::new(Expr::Nil)))) {\
                     loop {
                         match *ls {
                             Expr::Cons(current, rest) => {
-                                let exp = cons(f.clone(), cons(current, cons(acc, Box::new(Expr::Nil))));
-                       //         println!("reduce loop exp {:?}", print_car(&exp));
+                                let exp =
+                                    cons(f.clone(), cons(current, cons(acc, Box::new(Expr::Nil))));
+                                //         println!("reduce loop exp {:?}", print_car(&exp));
 
-                                acc = eval(
-                                    exp,
-                                    env,
-                                    global_env,
-                                );
-                        //        println!("reduce loop acc {:?}", print_car(&acc));
+                                acc = eval(exp, env, global_env);
+                                //        println!("reduce loop acc {:?}", print_car(&acc));
                                 ls = rest;
                             }
                             _ => {
@@ -386,6 +410,29 @@ fn eval(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Exp
                             ),
                             global_env,
                         )
+                    } else if symbol == "LOOP" {
+                        let mut loop_env = append(
+                            pair(car(cdr1.clone()), evlis(cdr_elem, env, global_env)),
+                            (*env).clone(),
+                        );
+                        loop {
+                            let cond = eval(caadr(cdr1.clone()), &loop_env, global_env);
+                            match *cond {
+                                Expr::Nil => {
+                                    loop_env = append(
+                                        pair(
+                                            car(cdr1.clone()),
+                                            evlis(caddr(cdr1.clone()), &loop_env, global_env),
+                                        ),
+                                        (*env).clone(),
+                                    );
+                                }
+                                _ => {
+                                    break;
+                                }
+                            }
+                        }
+                        eval(cadadr(cdr1), &loop_env, global_env)
                     } else if symbol == "MACRO" {
                         eval(
                             cadr(cdr1.clone()),
