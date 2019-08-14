@@ -202,29 +202,17 @@ fn list(a: Box<Expr>, b: Box<Expr>) -> Box<Expr> {
     cons(a, cons(b, Box::new(Expr::Nil)))
 }
 
-//fn cdr_append(x: &Expr) -> &Expr {
-//    match x {
-//        Expr::Cons(_car, cdr) => cdr,
-//        _ => {
-//            println!("Error. {:?} is not a list", print_car(&expr));
-//            Expr::Nil
-//        }
-//    }
-//}
-
 fn append_fn(x: &mut Expr, y: &mut Expr) {
-    let mut ls = x;
+    let mut ls: &mut Expr = x;
     loop {
         match ls {
             Expr::Cons(_head, tail) => {
-                ls = &mut *tail;
+                ls = tail;
             }
 
             Expr::Nil => {
                 let mut temp = y.clone();
                 mem::swap(ls, &mut temp);
-              //  core::ptr::write(ls, *y);
-              //  ls = &mut y.clone();
                 break;
             }
             _ => {
@@ -367,11 +355,8 @@ fn eval(expr: Box<Expr>, env: &mut Box<Expr>, global_env: &mut Box<Expr>) -> Box
                 } else if symbol == "APPEND" {
                     let mut x = eval(car(cdr_elem.clone()), env, global_env);
                     let mut y = eval(cadr(cdr_elem), env, global_env);
-                    append_fn(
-                        &mut x,
-                        &mut y,
-                    );
-                    x 
+                    append_fn(&mut x, &mut y);
+                    x
                 } else if symbol == "REDUCE" {
                     let f = eval(car(cdr_elem.clone()), env, global_env);
                     // println!("reduce f {:?}", print_car(&f));
@@ -432,28 +417,32 @@ fn eval(expr: Box<Expr>, env: &mut Box<Expr>, global_env: &mut Box<Expr>) -> Box
                             global_env,
                         )
                     } else if symbol == "LOOP" {
-                       //             println!("loop global env. 2 {:?}", print_car(&env));
-                        let mut loop_env = pair(car(cdr1.clone()), evlis(cdr_elem, env, global_env));
-                       //             println!("loop global env. 2 {:?}", print_car(&env));
+                        //             println!("loop global env. 2 {:?}", print_car(&env));
+                        let mut loop_env =
+                            pair(car(cdr1.clone()), evlis(cdr_elem, env, global_env));
+                        //             println!("loop global env. 2 {:?}", print_car(&env));
                         append_fn(&mut loop_env, env);
-                       //             println!("loop global env. 2 {:?}", print_car(&env));
+                        //             println!("loop global env. 2 {:?}", print_car(&env));
                         loop {
                             let cond: &Expr = &eval(caadr(cdr1.clone()), &mut loop_env, global_env);
                             match cond {
                                 Expr::Nil => {
-                         //           println!("loop env. 1 {:?}", print_car(&loop_env));
-                                    loop_env = pair(car(cdr1.clone()), evlis(caddr(cdr1.clone()), &mut loop_env, global_env));
-                           //         println!("loop env. 2 {:?}", print_car(&loop_env));
-                             //       println!("loop global env. 2 {:?}", print_car(&env));
+                                    //           println!("loop env. 1 {:?}", print_car(&loop_env));
+                                    loop_env = pair(
+                                        car(cdr1.clone()),
+                                        evlis(caddr(cdr1.clone()), &mut loop_env, global_env),
+                                    );
+                                    //         println!("loop env. 2 {:?}", print_car(&loop_env));
+                                    //       println!("loop global env. 2 {:?}", print_car(&env));
                                     append_fn(&mut loop_env, env);
-                            //        println!("loop env. 3 {:?}", print_car(&loop_env));
-                                //    loop_env = append(
-                                //        pair(
-                                //            car(cdr1.clone()),
-                                //            evlis(caddr(cdr1.clone()), &loop_env, global_env),
-                                //        ),
-                                //        (*env).clone(),
-                                //    );
+                                    //        println!("loop env. 3 {:?}", print_car(&loop_env));
+                                    //    loop_env = append(
+                                    //        pair(
+                                    //            car(cdr1.clone()),
+                                    //            evlis(caddr(cdr1.clone()), &loop_env, global_env),
+                                    //        ),
+                                    //        (*env).clone(),
+                                    //    );
                                 }
                                 _ => {
                                     break;
