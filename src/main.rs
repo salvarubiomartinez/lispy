@@ -146,7 +146,7 @@ fn assoc(x: Box<Expr>, env: Box<Expr>) -> Box<Expr> {
     }
 }
 
-fn evcond(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Expr> {
+fn evcond(expr: Box<Expr>, env: &mut Box<Expr>, global_env: &mut Box<Expr>) -> Box<Expr> {
     let cond = eval(caar(expr.clone()), env, global_env);
     match *cond {
         Expr::Nil => evcond(cdr(expr), env, global_env),
@@ -202,21 +202,39 @@ fn list(a: Box<Expr>, b: Box<Expr>) -> Box<Expr> {
     cons(a, cons(b, Box::new(Expr::Nil)))
 }
 
-fn append(x: Box<Expr>, y: Box<Expr>) -> Box<Expr> {
-    //   let mut acc = y;
-    //   let mut ls = x;
-    //   loop {
-    //       match *ls {
-    //           Expr::Cons(head, tail) => {
-    //               ls = cdr(ls);
-    //           },
+//fn cdr_append(x: &Expr) -> &Expr {
+//    match x {
+//        Expr::Cons(_car, cdr) => cdr,
+//        _ => {
+//            println!("Error. {:?} is not a list", print_car(&expr));
+//            Expr::Nil
+//        }
+//    }
+//}
 
-    //           Expr::Nil => {
-    //               break;
-    //           }
-    //       }
-    //   }
-    //   acc
+fn append_fn(x: &mut Expr, y: &mut Expr) {
+    let mut ls = x;
+    loop {
+        match ls {
+            Expr::Cons(_head, tail) => {
+                ls = &mut *tail;
+            }
+
+            Expr::Nil => {
+                let mut temp = y.clone();
+                mem::swap(ls, &mut temp);
+              //  core::ptr::write(ls, *y);
+              //  ls = &mut y.clone();
+                break;
+            }
+            _ => {
+                println!("Error. {:?} is not a list", print_car(ls));
+            }
+        }
+    }
+}
+
+fn append(x: Box<Expr>, y: Box<Expr>) -> Box<Expr> {
     match *x {
         Expr::Cons(head, tail) => cons(head, append(tail, y)),
         Expr::Nil => y,
@@ -242,7 +260,7 @@ fn pair(x: Box<Expr>, y: Box<Expr>) -> Box<Expr> {
     }
 }
 
-fn evlis(arguments: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Expr> {
+fn evlis(arguments: Box<Expr>, env: &mut Box<Expr>, global_env: &mut Box<Expr>) -> Box<Expr> {
     match *arguments {
         Expr::Cons(head, tail) => cons(eval(head, env, global_env), evlis(tail, env, global_env)),
         Expr::Nil => Box::new(Expr::Nil),
@@ -263,14 +281,14 @@ fn main() {
         for line in input.lock().lines() {
             // here line is a String without the trailing newline
             let parsed = parse(line.unwrap().to_uppercase());
-            result = eval(parsed, &env.clone(), env);
+            result = eval(parsed, &mut env.clone(), env);
             println!("{}", print_car(&result));
             // println!("env: {}", print_car(env));
         }
     }
 }
 
-fn eval(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Expr> {
+fn eval(expr: Box<Expr>, env: &mut Box<Expr>, global_env: &mut Box<Expr>) -> Box<Expr> {
     //    let expr2 = Box::new((*expr).clone());
     //    let env2 = Box::new((*env).clone());
     match *expr {
@@ -347,10 +365,13 @@ fn eval(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Exp
                     //  println!("eval env {:?}", print_car(&resp));
                     resp
                 } else if symbol == "APPEND" {
-                    append(
-                        eval(car(cdr_elem.clone()), env, global_env),
-                        eval(cadr(cdr_elem), env, global_env),
-                    )
+                    let mut x = eval(car(cdr_elem.clone()), env, global_env);
+                    let mut y = eval(cadr(cdr_elem), env, global_env);
+                    append_fn(
+                        &mut x,
+                        &mut y,
+                    );
+                    x 
                 } else if symbol == "REDUCE" {
                     let f = eval(car(cdr_elem.clone()), env, global_env);
                     // println!("reduce f {:?}", print_car(&f));
@@ -392,13 +413,13 @@ fn eval(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Exp
                     if symbol == "LABEL" {
                         eval(
                             cons(cadr(cdr1.clone()), cdr_elem),
-                            &cons(list(car(cdr1), car_elem), (*env).clone()),
+                            &mut cons(list(car(cdr1), car_elem), (*env).clone()),
                             global_env,
                         )
                     } else if symbol == "LAMBDA" {
                         eval(
                             cadr(cdr1.clone()),
-                            &cons(
+                            &mut cons(
                                 list(
                                     Box::new(Expr::Symbol("&ARGS".to_string())),
                                     evlis(cdr_elem.clone(), env, global_env),
@@ -411,32 +432,39 @@ fn eval(expr: Box<Expr>, env: &Box<Expr>, global_env: &mut Box<Expr>) -> Box<Exp
                             global_env,
                         )
                     } else if symbol == "LOOP" {
-                        let mut loop_env = append(
-                            pair(car(cdr1.clone()), evlis(cdr_elem, env, global_env)),
-                            (*env).clone(),
-                        );
+                       //             println!("loop global env. 2 {:?}", print_car(&env));
+                        let mut loop_env = pair(car(cdr1.clone()), evlis(cdr_elem, env, global_env));
+                       //             println!("loop global env. 2 {:?}", print_car(&env));
+                        append_fn(&mut loop_env, env);
+                       //             println!("loop global env. 2 {:?}", print_car(&env));
                         loop {
-                            let cond = eval(caadr(cdr1.clone()), &loop_env, global_env);
-                            match *cond {
+                            let cond: &Expr = &eval(caadr(cdr1.clone()), &mut loop_env, global_env);
+                            match cond {
                                 Expr::Nil => {
-                                    loop_env = append(
-                                        pair(
-                                            car(cdr1.clone()),
-                                            evlis(caddr(cdr1.clone()), &loop_env, global_env),
-                                        ),
-                                        (*env).clone(),
-                                    );
+                         //           println!("loop env. 1 {:?}", print_car(&loop_env));
+                                    loop_env = pair(car(cdr1.clone()), evlis(caddr(cdr1.clone()), &mut loop_env, global_env));
+                           //         println!("loop env. 2 {:?}", print_car(&loop_env));
+                             //       println!("loop global env. 2 {:?}", print_car(&env));
+                                    append_fn(&mut loop_env, env);
+                            //        println!("loop env. 3 {:?}", print_car(&loop_env));
+                                //    loop_env = append(
+                                //        pair(
+                                //            car(cdr1.clone()),
+                                //            evlis(caddr(cdr1.clone()), &loop_env, global_env),
+                                //        ),
+                                //        (*env).clone(),
+                                //    );
                                 }
                                 _ => {
                                     break;
                                 }
                             }
                         }
-                        eval(cadadr(cdr1), &loop_env, global_env)
+                        eval(cadadr(cdr1), &mut loop_env, global_env)
                     } else if symbol == "MACRO" {
                         eval(
                             cadr(cdr1.clone()),
-                            &cons(
+                            &mut cons(
                                 list(
                                     Box::new(Expr::Symbol("&ARGS".to_string())),
                                     cdr_elem.clone(),
