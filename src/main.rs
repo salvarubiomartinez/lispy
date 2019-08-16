@@ -2,12 +2,13 @@ extern crate regex;
 use regex::Regex;
 use std::io::BufRead;
 use std::mem;
+use std::rc::Rc;
 // use std::io;
 #[derive(Debug, Clone)]
 enum Expr {
-    Cons(Box<Expr>, Box<Expr>),
+    Cons(Rc<Expr>, Rc<Expr>),
     Symbol(String),
-    Number(i32),
+    Number(i64),
     Nil,
     T,
 }
@@ -72,18 +73,18 @@ fn not(expr: &Expr) -> Expr {
 }
 
 fn cons(expr1: &Expr, expr2: &Expr) -> Expr {
-    let head = Box::new(expr1.clone());
-    let tail = Box::new(expr2.clone());
+    let head = Rc::new(expr1.clone());
+    let tail = Rc::new(expr2.clone());
 
     Expr::Cons(head, tail)
 }
 
 fn car(expr: &Expr) -> Expr {
     match expr {
-        Expr::Cons(car, _cdr) => *(car.clone()),
-        Expr::Nil => Expr::Nil,
+        Expr::Cons(car, _cdr) => car.as_ref().clone(),
+//        Expr::Nil => Expr::Nil,
         _ => {
-            println!("Error. {:?} is not a list", print_car(&expr));
+            println!("car: Error. {:?} is not a list", print_car(&expr));
             Expr::Nil
         }
     }
@@ -91,10 +92,10 @@ fn car(expr: &Expr) -> Expr {
 
 fn cdr(expr: &Expr) -> Expr {
     match expr {
-        Expr::Cons(_car, cdr) => *(cdr.clone()),
-        Expr::Nil => Expr::Nil,
+        Expr::Cons(_car, cdr) => cdr.as_ref().clone(),
+//        Expr::Nil => Expr::Nil,
         _ => {
-            println!("Error. {:?} is not a list", print_car(&expr));
+            println!("cdr: Error. {:?} is not a list", print_car(&expr));
             Expr::Nil
         }
     }
@@ -131,7 +132,7 @@ fn assoc(x: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
         _ => cadar(env),
     }
 
-    //    let x2 = Box::new((*x));
+    //    let x2 = Rc::new((*x));
     //    match env {
     //        Expr::Cons(first, tail) => match first {
     //            Expr::Cons(f, t) => {
@@ -166,14 +167,14 @@ fn evcond(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
 }
 
 //fn apply<F>(f: F, list: &Expr) -> Expr
-//where F: Fn(Box<Expr>, Box<Expr>) -> Expr{
+//where F: Fn(Rc<Expr>, Rc<Expr>) -> Expr{
 //    match list {
-//        Expr::Nil => Box::new(Expr::Number(0)),
+//        Expr::Nil => Rc::new(Expr::Number(0)),
 //        Expr::Cons(head, tail) => {
 //            println!("plus head: {:?}", head);
 //            f(head, apply(f, tail))
 //        },
-//        _ => Box::new(Expr::Symbol(String::from("Error. Element is not a list"))),
+//        _ => Rc::new(Expr::Symbol(String::from("Error. Element is not a list"))),
 //    }
 //}
 
@@ -193,7 +194,7 @@ fn plus(a: &Expr, b: &Expr) -> Expr {
     }
 }
 
-fn arithmetic_op(a: &Expr, b: &Expr, f: &Fn(&i32, &i32) -> i32) -> Expr {
+fn arithmetic_op(a: &Expr, b: &Expr, f: &Fn(&i64, &i64) -> i64) -> Expr {
     match a {
         Expr::Number(value_a) => match b {
             Expr::Number(value_b) => Expr::Number(f(value_a, value_b)),
@@ -213,29 +214,30 @@ fn list(a: &Expr, b: &Expr) -> Expr {
     cons(a, &cons(b, &Expr::Nil))
 }
 
-fn append_fn(x: &mut Expr, y: &mut Expr) {
-    let mut ls: &mut Expr = x;
-    loop {
-        match ls {
-            Expr::Cons(_head, tail) => {
-                ls = tail;
-            }
-
-            Expr::Nil => {
-                let mut temp = y;
-                mem::swap(ls, &mut temp);
-                break;
-            }
-            _ => {
-                println!("Error. {:?} is not a list", print_car(ls));
-            }
-        }
-    }
-}
+//fn append_fn(x: &mut Expr, y: &mut Expr) {
+//    let mut ls: &mut Expr = x;
+//    loop {
+//        match ls {
+//            Expr::Cons(_head, tail) => {
+//                ls = tail;
+//            }
+//
+//            Expr::Nil => {
+//                let mut temp = y;
+//                mem::swap(ls, &mut temp);
+//                break;
+//            }
+//            _ => {
+//                println!("Error. {:?} is not a list", print_car(ls));
+//            }
+//        }
+//    }
+//}
 
 fn append(x: &Expr, y: &Expr) -> Expr {
     match x {
         Expr::Cons(head, tail) => cons(head, &append(tail, y)),
+        Expr::Nil => y.clone(),
         _ => cons(x, y),
     }
 }
@@ -259,6 +261,7 @@ fn pair(x: &Expr, y: &Expr) -> Expr {
 }
 
 fn evlis(arguments: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
+   // println!("evlis arguments: {:?}", print_car(arguments));
     match arguments {
         Expr::Cons(head, tail) => cons(&eval(head, env, global_env), &evlis(tail, env, global_env)),
         Expr::Nil => Expr::Nil,
@@ -287,8 +290,8 @@ fn main() {
 }
 
 fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
-    //    let expr2 = Box::new((*expr));
-    //    let env2 = Box::new((*env));
+    //    let expr2 = Rc::new((*expr));
+    //    let env2 = Rc::new((*env));
     match expr {
         Expr::T => Expr::T,
         Expr::Nil => Expr::Nil,
@@ -361,34 +364,38 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
                         //  println!("eval env {:?}", print_car(&resp));
                         resp
                     } else if symbol == "APPEND" {
-                        let mut x = eval(&car(cdr_elem), env, global_env);
-                        let mut y = eval(&cadr(cdr_elem), env, global_env);
-                        append_fn(&mut x, &mut y);
-                        x
-                    } else if symbol == "REDUCE" {
-                        let f = eval(&car(cdr_elem), env, global_env);
-                        // println!("reduce f {:?}", print_car(&f));
-                        let mut ls: &mut Expr = &mut eval(&cadr(cdr_elem), env, global_env);
-                        // println!("reduce ls {:?}", print_car(&ls));
-                        let mut acc = eval(&caddr(cdr_elem), env, global_env);
-                        // println!("reduce acc {:?}", print_car(&acc));
-                        //    while (not(eq(ls, Expr::Nil))) {\
-                        loop {
-                            match ls {
-                                Expr::Cons(current, rest) => {
-                                    let exp = &cons(&f, &cons(current, &cons(&acc, &Expr::Nil)));
-                                    //         println!("reduce loop exp {:?}", print_car(&exp));
-
-                                    acc = eval(exp, env, global_env);
-                                    //        println!("reduce loop acc {:?}", print_car(&acc));
-                                    ls = rest;
-                                }
-                                _ => {
-                                    break;
-                                }
-                            }
-                        }
-                        acc
+                        append(
+                            &eval(&car(cdr_elem), env, global_env),
+                            &eval(&cadr(cdr_elem), env, global_env),
+                        )
+                    //                        let mut x = eval(&car(cdr_elem), env, global_env);
+                    //                        let mut y = eval(&cadr(cdr_elem), env, global_env);
+                    //                        append_fn(&mut x, &mut y);
+                    //                        x
+//                    } else if symbol == "REDUCE" {
+//                        let f = eval(&car(cdr_elem), env, global_env);
+//                        // println!("reduce f {:?}", print_car(&f));
+//                        let mut ls: &mut Expr = &mut eval(&cadr(cdr_elem), env, global_env);
+//                        // println!("reduce ls {:?}", print_car(&ls));
+//                        let mut acc = eval(&caddr(cdr_elem), env, global_env);
+//                        // println!("reduce acc {:?}", print_car(&acc));
+//                        //    while (not(eq(ls, Expr::Nil))) {\
+//                        loop {
+//                            match ls {
+//                                Expr::Cons(current, rest) => {
+//                                    let exp = &cons(&f, &cons(current, &cons(&acc, &Expr::Nil)));
+//                                    //         println!("reduce loop exp {:?}", print_car(&exp));
+//
+//                                    acc = eval(exp, env, global_env);
+//                                    //        println!("reduce loop acc {:?}", print_car(&acc));
+//                                    ls = rest;
+//                                }
+//                                _ => {
+//                                    break;
+//                                }
+//                            }
+//                        }
+//                        acc
                     } else {
                         eval(
                             &cons(
@@ -428,32 +435,33 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
                                 )
                             } else if symbol == "LOOP" {
                                 //             println!("loop global env. 2 {:?}", print_car(&env));
-                                let mut loop_env =
-                                    pair(&car(cdr1), &evlis(cdr_elem, env, global_env));
-                                //             println!("loop global env. 2 {:?}", print_car(&env));
-                                append_fn(&mut loop_env, env);
+                                let mut loop_env = append(
+                                    &pair(&car(cdr1), &evlis(cdr_elem, env, global_env)),
+                                    env,
+                                );
+                                // append_fn(&mut loop_env, env);
                                 //             println!("loop global env. 2 {:?}", print_car(&env));
                                 loop {
                                     let cond: &Expr =
                                         &eval(&caadr(cdr1), &mut loop_env, global_env);
                                     match cond {
                                         Expr::Nil => {
-                                            //           println!("loop env. 1 {:?}", print_car(&loop_env));
-                                            loop_env = pair(
-                                                &car(cdr1),
-                                                &evlis(&caddr(cdr1), &mut loop_env, global_env),
-                                            );
+                                         //              println!("loop env. 1 {:?}", print_car(&loop_env));
+                                            //            loop_env = pair(
+                                            //                &car(cdr1),
+                                            //                &evlis(&caddr(cdr1), &mut loop_env, global_env),
+                                            //            );
                                             //         println!("loop env. 2 {:?}", print_car(&loop_env));
                                             //       println!("loop global env. 2 {:?}", print_car(&env));
-                                            append_fn(&mut loop_env, env);
+                                            // append_fn(&mut loop_env, env);
                                             //        println!("loop env. 3 {:?}", print_car(&loop_env));
-                                            //    loop_env = append(
-                                            //        pair(
-                                            //            car(cdr1),
-                                            //            evlis(caddr(cdr1), &loop_env, global_env),
-                                            //        ),
-                                            //        (*env),
-                                            //    );
+                                            loop_env = append(
+                                                &pair(
+                                                    &car(cdr1),
+                                                    &evlis(&caddr(cdr1), &mut loop_env, global_env),
+                                                ),
+                                                env,
+                                            );
                                         }
                                         _ => {
                                             break;
@@ -555,7 +563,7 @@ fn is_atom(str: &String) -> bool {
 }
 
 fn parse_atom(atom: &String) -> Expr {
-    let option_int = atom.parse::<i32>();
+    let option_int = atom.parse::<i64>();
     match option_int {
         Ok(int) => Expr::Number(int),
         Err(_error) => {
