@@ -4,7 +4,7 @@ use std::io::BufRead;
 use std::mem;
 use std::rc::Rc;
 // use std::io;
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 enum Expr {
     Cons(Rc<Expr>, Rc<Expr>),
     Symbol(String),
@@ -13,131 +13,131 @@ enum Expr {
     T,
 }
 
-fn atom(expr: &Expr) -> Expr {
-    match expr {
-        Expr::Cons(_head, _tail) => Expr::Nil,
-        _ => Expr::T,
+fn atom(expr: &Rc<Expr>) -> Rc<Expr> {
+    match &**expr {
+        Expr::Cons(_head, _tail) => Rc::new(Expr::Nil),
+        _ => Rc::new(Expr::T),
     }
 }
 
-fn eq(a: &Expr, b: &Expr) -> Expr {
+fn eq(a: &Rc<Expr>, b: &Rc<Expr>) -> Rc<Expr> {
     //    println!("eq a. {:?}", print_car(a));
     //    println!("eq b. {:?}", print_car(b));
-    match a {
-        Expr::Symbol(value_a) => match b {
+    match &**a {
+        Expr::Symbol(value_a) => match &**b {
             Expr::Symbol(value_b) => {
                 if value_a == value_b {
-                    Expr::T
-                } else {
-                    Expr::Nil
-                }
+                    Rc::new(Expr::T
+                )} else {
+                    Rc::new(Expr::Nil
+                )}
             }
-            _ => Expr::Nil,
+            _ => Rc::new(Expr::Nil),
         },
-        Expr::Number(num_a) => match b {
+        Expr::Number(num_a) => match &**b {
             Expr::Number(num_b) => {
                 if num_a == num_b {
-                    Expr::T
-                } else {
-                    Expr::Nil
-                }
+                    Rc::new(Expr::T
+                )} else {
+                    Rc::new(Expr::Nil
+                )}
             }
-            _ => Expr::Nil,
+            _ => Rc::new(Expr::Nil),
         },
-        Expr::T => match b {
-            Expr::T => Expr::T,
-            _ => Expr::Nil,
+        Expr::T => match &**b {
+            Expr::T => Rc::new(Expr::T),
+            _ => Rc::new(Expr::Nil),
         },
-        Expr::Nil => match b {
-            Expr::Nil => Expr::T,
-            _ => Expr::Nil,
+        Expr::Nil => match &**b {
+            Expr::Nil => Rc::new(Expr::T),
+            _ => Rc::new(Expr::Nil),
         },
-        Expr::Cons(head_a, tail_a) => match b {
+        Expr::Cons(head_a, tail_a) => match &**b {
             Expr::Cons(head_b, tail_b) => {
                 let eq_head = eq(head_a, head_b);
-                match eq_head {
+                match *eq_head {
                     Expr::T => eq(tail_a, tail_b),
-                    _ => Expr::Nil,
+                    _ => Rc::new(Expr::Nil),
                 }
             }
-            _ => Expr::Nil,
+            _ => Rc::new(Expr::Nil),
         },
     }
 }
 
-fn not(expr: &Expr) -> Expr {
-    match expr {
-        Expr::Nil => Expr::T,
-        _ => Expr::Nil,
+fn not(expr: &Rc<Expr>) -> Rc<Expr> {
+    match &**expr {
+        Expr::Nil => Rc::new(Expr::T),
+        _ => Rc::new(Expr::Nil),
     }
 }
 
-fn cons(expr1: &Expr, expr2: &Expr) -> Expr {
-    let head = Rc::new(expr1.clone());
-    let tail = Rc::new(expr2.clone());
+fn cons(expr1: &Rc<Expr>, expr2: &Rc<Expr>) -> Rc<Expr> {
+    let head = Rc::clone(expr1);
+    let tail = Rc::clone(expr2);
 
-    Expr::Cons(head, tail)
+    Rc::new(Expr::Cons(head, tail))
 }
 
-fn car(expr: &Expr) -> Expr {
-    match expr {
-        Expr::Cons(car, _cdr) => car.as_ref().clone(),
+fn car(expr: &Rc<Expr>) -> Rc<Expr> {
+    match &**expr {
+        Expr::Cons(car, _cdr) => car.clone(),
 //        Expr::Nil => Expr::Nil,
         _ => {
             println!("car: Error. {:?} is not a list", print_car(&expr));
-            Expr::Nil
+            Rc::new(Expr::Nil)
         }
     }
 }
 
-fn cdr(expr: &Expr) -> Expr {
-    match expr {
-        Expr::Cons(_car, cdr) => cdr.as_ref().clone(),
+fn cdr(expr: &Rc<Expr>) -> Rc<Expr> {
+    match &**expr {
+        Expr::Cons(_car, cdr) => cdr.clone(),
 //        Expr::Nil => Expr::Nil,
         _ => {
             println!("cdr: Error. {:?} is not a list", print_car(&expr));
-            Expr::Nil
+            Rc::new(Expr::Nil)
         }
     }
 }
 
-fn cadr(expr: &Expr) -> Expr {
+fn cadr(expr: &Rc<Expr>) -> Rc<Expr> {
     car(&cdr(expr))
 }
 
-fn caar(expr: &Expr) -> Expr {
+fn caar(expr: &Rc<Expr>) -> Rc<Expr> {
     car(&car(expr))
 }
 
-fn cadar(expr: &Expr) -> Expr {
+fn cadar(expr: &Rc<Expr>) -> Rc<Expr> {
     car(&cdr(&car(expr)))
 }
 
-fn caddr(expr: &Expr) -> Expr {
+fn caddr(expr: &Rc<Expr>) -> Rc<Expr> {
     car(&cdr(&cdr(expr)))
 }
 
-fn caadr(expr: &Expr) -> Expr {
+fn caadr(expr: &Rc<Expr>) -> Rc<Expr> {
     car(&car(&cdr(expr)))
 }
 
-fn cadadr(expr: &Expr) -> Expr {
+fn cadadr(expr: &Rc<Expr>) -> Rc<Expr> {
     car(&cdr(&car(&cdr(expr))))
 }
 
-fn assoc(x: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
+fn assoc(x: &Rc<Expr>, env: &Rc<Expr>, global_env: &Expr) -> Rc<Expr> {
     let cond = eq(x, &caar(env));
-    match cond {
-        Expr::Nil => assoc(x, &mut cdr(env), global_env),
+    match *cond {
+        Expr::Nil => assoc(x, &cdr(env), global_env),
         _ => cadar(env),
     }
 
     //    let x2 = Rc::new((*x));
-    //    match env {
-    //        Expr::Cons(first, tail) => match first {
+    //    match &**env {
+    //        Expr::Cons(first, tail) => match &**first {
     //            Expr::Cons(f, t) => {
     //                let equal = eq(x, f);
-    //                match equal {
+    //                match &**equal {
     //                    Expr::T => car(t),
     //                    _ => assoc(x2, tail),
     //                }
@@ -158,17 +158,17 @@ fn assoc(x: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
     //    }
 }
 
-fn evcond(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
+fn evcond(expr: &Rc<Expr>, env: &mut Rc<Expr>, global_env: &mut Rc<Expr>) -> Rc<Expr> {
     let cond = eval(&caar(expr), env, global_env);
-    match cond {
+    match *cond {
         Expr::Nil => evcond(&cdr(expr), env, global_env),
         _ => eval(&cadar(expr), env, global_env),
     }
 }
 
-//fn apply<F>(f: F, list: &Expr) -> Expr
-//where F: Fn(Rc<Expr>, Rc<Expr>) -> Expr{
-//    match list {
+//fn apply<F>(f: F, list: &Rc<Expr>) -> Rc<Expr>
+//where F: Fn(Rc<Expr>, Rc<Expr>) -> Rc<Expr>{
+//    match &**list {
 //        Expr::Nil => Rc::new(Expr::Number(0)),
 //        Expr::Cons(head, tail) => {
 //            println!("plus head: {:?}", head);
@@ -178,46 +178,46 @@ fn evcond(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
 //    }
 //}
 
-fn plus(a: &Expr, b: &Expr) -> Expr {
-    match a {
-        Expr::Number(value_a) => match b {
-            Expr::Number(value_b) => Expr::Number(value_a + value_b),
+fn plus(a: &Rc<Expr>, b: &Rc<Expr>) -> Rc<Expr> {
+    match &**a {
+        Expr::Number(value_a) => match &**b {
+            Expr::Number(value_b) => Rc::new(Expr::Number(value_a + value_b)),
             _ => {
                 println!("Error. {:?} is not a number", print_car(&b));
-                Expr::Nil
-            }
+                Rc::new(Expr::Nil
+            )}
         },
         _ => {
             println!("Error. {:?} is not a number", print_car(&a));
-            Expr::Nil
-        }
+            Rc::new(Expr::Nil
+        )}
     }
 }
 
-fn arithmetic_op(a: &Expr, b: &Expr, f: &Fn(&i64, &i64) -> i64) -> Expr {
-    match a {
-        Expr::Number(value_a) => match b {
-            Expr::Number(value_b) => Expr::Number(f(value_a, value_b)),
+fn arithmetic_op(a: &Rc<Expr>, b: &Rc<Expr>, f: &Fn(&i64, &i64) -> i64) -> Rc<Expr> {
+    match &**a {
+        Expr::Number(value_a) => match &**b {
+            Expr::Number(value_b) => Rc::new(Expr::Number(f(value_a, value_b))),
             _ => {
                 println!("Error. {:?} is not a number", print_car(&b));
-                Expr::Nil
-            }
+                Rc::new(Expr::Nil
+            )}
         },
         _ => {
             println!("Error. {:?} is not a number", print_car(&a));
-            Expr::Nil
-        }
+            Rc::new(Expr::Nil
+        )}
     }
 }
 
-fn list(a: &Expr, b: &Expr) -> Expr {
-    cons(a, &cons(b, &Expr::Nil))
+fn list(a: &Rc<Expr>, b: &Rc<Expr>) -> Rc<Expr> {
+    cons(a, &cons(b, &Rc::new(Expr::Nil)))
 }
 
 //fn append_fn(x: &mut Expr, y: &mut Expr) {
 //    let mut ls: &mut Expr = x;
 //    loop {
-//        match ls {
+//        match &**ls {
 //            Expr::Cons(_head, tail) => {
 //                ls = tail;
 //            }
@@ -234,47 +234,47 @@ fn list(a: &Expr, b: &Expr) -> Expr {
 //    }
 //}
 
-fn append(x: &Expr, y: &Expr) -> Expr {
-    match x {
+fn append(x: &Rc<Expr>, y: &Rc<Expr>) -> Rc<Expr> {
+    match &**x {
         Expr::Cons(head, tail) => cons(head, &append(tail, y)),
         Expr::Nil => y.clone(),
         _ => cons(x, y),
     }
 }
 
-fn pair(x: &Expr, y: &Expr) -> Expr {
-    match x {
-        Expr::Cons(head_x, tail_x) => match y {
+fn pair(x: &Rc<Expr>, y: &Rc<Expr>) -> Rc<Expr> {
+    match &**x {
+        Expr::Cons(head_x, tail_x) => match &**y {
             Expr::Cons(head_y, tail_y) => cons(&list(head_x, head_y), &pair(tail_x, tail_y)),
-            Expr::Nil => Expr::Nil,
+            Expr::Nil => Rc::new(Expr::Nil),
             _ => {
                 println!("Error. {:?} is not a list", print_car(&y));
-                Expr::Nil
-            }
+                Rc::new(Expr::Nil
+            )}
         },
-        Expr::Nil => Expr::Nil,
+        Expr::Nil => Rc::new(Expr::Nil),
         _ => {
             println!("Error. {:?} is not a list", print_car(&x));
-            Expr::Nil
-        }
+            Rc::new(Expr::Nil
+        )}
     }
 }
 
-fn evlis(arguments: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
+fn evlis(arguments: &Rc<Expr>, env: &mut Rc<Expr>, global_env: &mut Rc<Expr>) -> Rc<Expr> {
    // println!("evlis arguments: {:?}", print_car(arguments));
-    match arguments {
+    match &**arguments {
         Expr::Cons(head, tail) => cons(&eval(head, env, global_env), &evlis(tail, env, global_env)),
-        Expr::Nil => Expr::Nil,
+        Expr::Nil => Rc::new(Expr::Nil),
         _ => {
             println!("Error. {:?} is not a list", print_car(&arguments));
-            Expr::Nil
-        }
+            Rc::new(Expr::Nil
+        )}
     }
 }
 
 fn main() {
-    let mut result: Expr;
-    let env: &mut Expr = &mut parse( &("((QUOTE QUOTE) (ATOM ATOM) (EQ EQ) (CAR CAR) (CDR CDR) (CONS CONS) (LIST LIST) (COND COND) (PLUS PLUS) (PROD PROD) (DIFF DIFF) (QUOT) (QUOT) (LAMBDA LAMBDA) (MACRO MACRO) (SETQ SETQ) (APPEND APPEND) (REDUCE REDUCE) (LOOP LOOP) (NIL ()))".to_string()) );
+    let mut result: Rc<Expr>;
+    let env: &mut Rc<Expr>= &mut parse( &("((QUOTE QUOTE) (ATOM ATOM) (EQ EQ) (CAR CAR) (CDR CDR) (CONS CONS) (LIST LIST) (COND COND) (PLUS PLUS) (PROD PROD) (DIFF DIFF) (QUOT) (QUOT) (LAMBDA LAMBDA) (MACRO MACRO) (SETQ SETQ) (APPEND APPEND) (REDUCE REDUCE) (LOOP LOOP) (NIL ()))".to_string()) );
     loop {
         //       let mut input = String::new();
         //        io::stdin().lock..expect("error reading");
@@ -289,18 +289,19 @@ fn main() {
     }
 }
 
-fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
+fn eval(expr: &Rc<Expr>, env: &mut Rc<Expr>, global_env: &mut Rc<Expr>) -> Rc<Expr> {
     //    let expr2 = Rc::new((*expr));
     //    let env2 = Rc::new((*env));
-    match expr {
-        Expr::T => Expr::T,
-        Expr::Nil => Expr::Nil,
-        Expr::Number(num) => Expr::Number(*num),
-        Expr::Symbol(symbol) => assoc(&Expr::Symbol(symbol.to_string()), env, global_env),
+    match &**expr {
+        Expr::T => Rc::new(Expr::T),
+        Expr::Nil => Rc::new(Expr::Nil),
+        Expr::Number(num) => Rc::new(Expr::Number(*num)),
+        Expr::Symbol(symbol) => assoc(&Rc::new(Expr::Symbol(symbol.to_string())), env, global_env),
         Expr::Cons(head, cdr_elem) => {
-            let car_elem: &Expr = head;
-            match car_elem {
+            let car_elem: &Rc<Expr> = head;
+            match &**car_elem {
                 Expr::Symbol(symbol) => {
+                    
                     //      println!("your value: {:?}", (symbol));
                     if symbol == "QUOTE" {
                         car(cdr_elem)
@@ -381,7 +382,7 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
 //                        // println!("reduce acc {:?}", print_car(&acc));
 //                        //    while (not(eq(ls, Expr::Nil))) {\
 //                        loop {
-//                            match ls {
+//                            match &**ls {
 //                                Expr::Cons(current, rest) => {
 //                                    let exp = &cons(&f, &cons(current, &cons(&acc, &Expr::Nil)));
 //                                    //         println!("reduce loop exp {:?}", print_car(&exp));
@@ -399,7 +400,7 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
                     } else {
                         eval(
                             &cons(
-                                &eval(&Expr::Symbol(symbol.to_string()), env, global_env),
+                                &eval(&Rc::new(Expr::Symbol(symbol.to_string())), env, global_env),
                                 cdr_elem,
                             ),
                             env,
@@ -408,9 +409,9 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
                     }
                 }
                 Expr::Cons(head1, tail1) => {
-                    let car1: &Expr = head1;
-                    let cdr1: &Expr = tail1;
-                    match car1 {
+                    let car1: &Rc<Expr> = head1;
+                    let cdr1: &Rc<Expr> = tail1;
+                    match &**car1 {
                         Expr::Symbol(symbol) => {
                             if symbol == "LABEL" {
                                 eval(
@@ -423,7 +424,7 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
                                     &cadr(cdr1),
                                     &mut cons(
                                         &list(
-                                            &Expr::Symbol("&ARGS".to_string()),
+                                            &Rc::new(Expr::Symbol("&ARGS".to_string())),
                                             &evlis(cdr_elem, env, global_env),
                                         ),
                                         &append(
@@ -442,9 +443,9 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
                                 // append_fn(&mut loop_env, env);
                                 //             println!("loop global env. 2 {:?}", print_car(&env));
                                 loop {
-                                    let cond: &Expr =
+                                    let cond: &Rc<Expr> =
                                         &eval(&caadr(cdr1), &mut loop_env, global_env);
-                                    match cond {
+                                    match &**cond {
                                         Expr::Nil => {
                                          //              println!("loop env. 1 {:?}", print_car(&loop_env));
                                             //            loop_env = pair(
@@ -473,7 +474,7 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
                                 eval(
                                     &cadr(cdr1),
                                     &mut cons(
-                                        &list(&Expr::Symbol("&ARGS".to_string()), cdr_elem),
+                                        &list(&Rc::new(Expr::Symbol("&ARGS".to_string())), cdr_elem),
                                         &append(&pair(&car(cdr1), cdr_elem), env),
                                     ),
                                     global_env,
@@ -483,7 +484,7 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
                                     &cons(
                                         &cons(
                                             &assoc(
-                                                &Expr::Symbol(symbol.to_string()),
+                                                &Rc::new(Expr::Symbol(symbol.to_string())),
                                                 env,
                                                 global_env,
                                             ),
@@ -498,14 +499,14 @@ fn eval(expr: &Expr, env: &mut Expr, global_env: &mut Expr) -> Expr {
                         }
                         _ => {
                             println!("Error. {:?} is not a symbol", print_car(&car1));
-                            Expr::Nil
-                        }
+                            Rc::new(Expr::Nil
+                        )}
                     }
                 }
                 _ => {
                     println!("Error. {:?} is not a symbol", print_car(&car_elem));
-                    Expr::Nil
-                }
+                    Rc::new(Expr::Nil
+                )}
             }
         }
     }
@@ -562,24 +563,24 @@ fn is_atom(str: &String) -> bool {
     init_letter != "("
 }
 
-fn parse_atom(atom: &String) -> Expr {
+fn parse_atom(atom: &String) -> Rc<Expr> {
     let option_int = atom.parse::<i64>();
     match option_int {
-        Ok(int) => Expr::Number(int),
+        Ok(int) => Rc::new(Expr::Number(int)),
         Err(_error) => {
             if atom == "NIL" {
-                Expr::Nil
-            } else if atom == "T" {
-                Expr::T
-            } else {
+                Rc::new(Expr::Nil
+            )} else if atom == "T" {
+                Rc::new(Expr::T
+            )} else {
                 let init_letter = &atom[0..1];
                 let rest_word = &atom[1..(atom.len())];
                 if init_letter != "\'" {
-                    Expr::Symbol(atom.to_string())
+                    Rc::new(Expr::Symbol(atom.to_string()))
                 } else {
                     list(
-                        &Expr::Symbol("QUOTE".to_string()),
-                        &Expr::Symbol(rest_word.to_string()),
+                        &Rc::new(Expr::Symbol("QUOTE".to_string())),
+                        &Rc::new(Expr::Symbol(rest_word.to_string())),
                     )
                 }
             }
@@ -587,17 +588,17 @@ fn parse_atom(atom: &String) -> Expr {
     }
 }
 
-fn parse_list(mut list: Vec<String>) -> Expr {
+fn parse_list(mut list: Vec<String>) -> Rc<Expr> {
     if list.len() == 0 {
-        Expr::Nil
-    } else {
+        Rc::new(Expr::Nil
+    )} else {
         let next = list.remove(0);
         //      println!("next: {:?}", next);
         cons(&parse(&next), &parse_list(list))
     }
 }
 
-fn parse(expr: &String) -> Expr {
+fn parse(expr: &String) -> Rc<Expr> {
     //   println!("expr: {:?}", expr);
     if is_atom(expr) {
         //    println!("is_atom: {:?}", expr);
