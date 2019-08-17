@@ -550,6 +550,9 @@ fn parse_s_expr(expr: &String) -> Vec<String> {
         if paren == '(' {
             depth += 1;
         } else if paren == ')' {
+            if depth == 0 {
+                println!("Unmatched open token at {}", pos);
+            }
             depth -= 1;
             if depth == 0 {
                 result.push(&subexpr[pos..end]);
