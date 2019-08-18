@@ -632,9 +632,9 @@ fn print_car(expr: &Expr) -> String {
 
 fn print_cdr(expr: &Expr) -> String {
     match expr {
-        Expr::Symbol(symbol) => symbol.to_string(),
-        Expr::Number(number) => number.to_string(),
-        Expr::T => "T".to_string(),
+        Expr::Symbol(symbol) =>  " . ".to_string() + &symbol.to_string() + &")".to_string(),
+        Expr::Number(number) =>  " . ".to_string() + &number.to_string() + &")".to_string(),
+        Expr::T =>  " . ".to_string() + &"T".to_string() + &")".to_string(),
         Expr::Nil => ")".to_string(),
         Expr::Cons(head, tail) => " ".to_string() + &print_car(head) + &print_cdr(tail),
     }
