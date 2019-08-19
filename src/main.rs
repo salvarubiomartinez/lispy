@@ -21,7 +21,7 @@ fn get_t() -> Expr {
 fn atom(expr: &Expr) -> Expr {
     expr.as_ref().and_then(|elem| match elem.as_ref() {
         Elem::Node(_, _) => None,
-        _ => Some(Rc::new(Elem::T)),
+        _ => get_t(),
     })
 }
 
@@ -478,6 +478,10 @@ fn parse_s_expr(expr: &String) -> Vec<String> {
 
     result.extend(final_tokens);
     //    println!("your result: {:?}", result);
+    if depth != 0 {
+        println!("Unmatched closed token");
+        result = vec!["NIL"];
+    }
     result.iter().map(|s| s.to_string()).collect()
 }
 
