@@ -271,11 +271,6 @@ fn eval(expr: &Expr, env: &Expr, global_env: &mut Expr) -> Expr {
                             //  println!("eval resp {:?}", print_car(&resp));
                             //  println!("eval env {:?}", print_car(&resp));
                             resp
-                        } else if symbol == "APPEND" {
-                            append(
-                                &eval(&car(cdr_elem), env, global_env),
-                                &eval(&cadr(cdr_elem), env, global_env),
-                            )
                         } else {
                             eval(
                                 &cons(&eval(car_elem, env, global_env), cdr_elem),
