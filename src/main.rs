@@ -1,7 +1,7 @@
 extern crate regex;
-use std::mem;
 use regex::Regex;
 use std::io::BufRead;
+use std::mem;
 use std::rc::Rc;
 
 type Expr = Option<Rc<Elem>>;
@@ -14,6 +14,10 @@ enum Elem {
     Node(Expr, Expr),
 }
 
+fn get_t() -> Expr {
+    Some(Rc::new(Elem::T))
+}
+
 fn atom(expr: &Expr) -> Expr {
     expr.as_ref().and_then(|elem| match elem.as_ref() {
         Elem::Node(_, _) => None,
@@ -21,47 +25,44 @@ fn atom(expr: &Expr) -> Expr {
     })
 }
 
-fn eq(a: &Rc<Expr>, b: &Rc<Expr>) -> Rc<Expr> {
-    //    println!("eq a. {:?}", print_car(a));
-    //    println!("eq b. {:?}", print_car(b));
-    match &**a {
-        Expr::Symbol(value_a) => match &**b {
-            Expr::Symbol(value_b) => {
-                if value_a == value_b {
-                    Rc::new(Expr::T)
-                } else {
-                    Rc::new(Expr::Nil)
+fn eq(a: &Expr, b: &Expr) -> Expr {
+    match a.as_ref() {
+        Some(elem_a) => match elem_a.as_ref() {
+            Elem::Symbol(value_a) => b.as_ref().and_then(|elem_b| match elem_b.as_ref() {
+                Elem::Symbol(value_b) => {
+                    if value_a == value_b {
+                        get_t()
+                    } else {
+                        None
+                    }
                 }
-            }
-            _ => Rc::new(Expr::Nil),
-        },
-        Expr::Number(num_a) => match &**b {
-            Expr::Number(num_b) => {
-                if num_a == num_b {
-                    Rc::new(Expr::T)
-                } else {
-                    Rc::new(Expr::Nil)
+                _ => None,
+            }),
+            Elem::I64(num_a) => b.as_ref().and_then(|elem_b| match elem_b.as_ref() {
+                Elem::I64(num_b) => {
+                    if num_a == num_b {
+                        get_t()
+                    } else {
+                        None
+                    }
                 }
-            }
-            _ => Rc::new(Expr::Nil),
-        },
-        Expr::T => match &**b {
-            Expr::T => Rc::new(Expr::T),
-            _ => Rc::new(Expr::Nil),
-        },
-        Expr::Nil => match &**b {
-            Expr::Nil => Rc::new(Expr::T),
-            _ => Rc::new(Expr::Nil),
-        },
-        Expr::Cons(head_a, tail_a) => match &**b {
-            Expr::Cons(head_b, tail_b) => {
-                let eq_head = eq(head_a, head_b);
-                match *eq_head {
-                    Expr::T => eq(tail_a, tail_b),
-                    _ => Rc::new(Expr::Nil),
+                _ => None,
+            }),
+            Elem::T => b.as_ref().and_then(|elem_b| match elem_b.as_ref() {
+                Elem::T => get_t(),
+                _ => None,
+            }),
+            Elem::Node(head_a, tail_a) => b.as_ref().and_then(|elem_b| match elem_b.as_ref() {
+                Elem::Node(head_b, tail_b) => {
+                    let eq_head = eq(head_a, head_b);
+                    eq_head.as_ref().and_then(|_result| eq(tail_a, tail_b))
                 }
-            }
-            _ => Rc::new(Expr::Nil),
+                _ => None,
+            }),
+        },
+        None => match b.as_ref() {
+            None => get_t(),
+            Some(_) => None,
         },
     }
 }
@@ -74,7 +75,7 @@ fn car(expr: &Expr) -> Expr {
     expr.as_ref().and_then(|elem| match elem.as_ref() {
         Elem::Node(head, _tail) => head.clone(),
         _ => {
-            println!("car: Error. {:?} is not a list", expr);
+            println!("car: Error. {:?} is not a list", print_car(expr));
             None
         }
     })
@@ -84,7 +85,7 @@ fn cdr(expr: &Expr) -> Expr {
     expr.as_ref().and_then(|elem| match elem.as_ref() {
         Elem::Node(_head, tail) => tail.clone(),
         _ => {
-            println!("cdr: Error. {:?} is not a list", expr);
+            println!("cdr: Error. {:?} is not a list", print_car(expr));
             None
         }
     })
@@ -133,67 +134,70 @@ fn pair(a: &Expr, b: &Expr) -> Expr {
         Elem::Node(head_a, tail_a) => b.as_ref().and_then(|elem_b| match elem_b.as_ref() {
             Elem::Node(head_b, tail_b) => cons(&list(head_a, head_b), &pair(tail_a, tail_b)),
             _ => {
-                println!("cdr: Error. {:?} is not a list", a);
+                println!("Error. {:?} is not a list", print_car(b));
                 None
             }
         }),
         _ => {
-            println!("cdr: Error. {:?} is not a list", a);
+            println!("Error. {:?} is not a list", print_car(a));
             None
         }
     })
 }
-
 
 fn assoc(x: &Expr, env: &Expr, global_env: &Expr) -> Expr {
-    env.as_ref().and_then(|elem_a| match elem_a.as_ref() {
-        Elem::Node(head, tail) => {
-            let cond = eq(x, &car(head));
-            match cond.as_ref() {
-                None => assoc(x, tail, global_env),
-                _ => cadr(head),
-            } 
+    match env.as_ref() {
+        Some(elem) => match elem.as_ref() {
+            Elem::Node(head, tail) => {
+                let cond = eq(x, &car(head));
+                match cond.as_ref() {
+                    None => assoc(x, tail, global_env),
+                    _ => cadr(head),
+                }
+            }
+            _ => {
+                println!("Error. {:?} is not a list", print_car(env));
+                None
+            }
         },
+        None => {
+            println!("Error. {:?} is undefined", print_car(x));
+            None
+        }
+    }
+}
+
+fn evlis(arguments: &Expr, env: &Expr, global_env: &mut Expr) -> Expr {
+    arguments.as_ref().and_then(|elem| match elem.as_ref() {
+        Elem::Node(head, tail) => cons(&eval(head, env, global_env), &evlis(tail, env, global_env)),
         _ => {
-            println!("cdr: Error. {:?} is not a list", a);
+            println!("Error. {:?} is not a list", print_car(arguments));
             None
         }
     })
 }
 
-fn evlis(arguments: &Rc<Expr>, env: &Rc<Expr>, global_env: &mut Rc<Expr>) -> Rc<Expr> {
-    // println!("evlis arguments: {:?}", print_car(arguments));
-    match &**arguments {
-        Expr::Cons(head, tail) => cons(&eval(head, env, global_env), &evlis(tail, env, global_env)),
-        Expr::Nil => Rc::new(Expr::Nil),
-        _ => {
-            println!("Error. {:?} is not a list", print_car(&arguments));
-            Rc::new(Expr::Nil)
-        }
-    }
-}
-
-fn arithmetic_op(a: &Rc<Expr>, b: &Rc<Expr>, f: &Fn(&i64, &i64) -> i64) -> Rc<Expr> {
-    match &**a {
-        Expr::Number(value_a) => match &**b {
-            Expr::Number(value_b) => Rc::new(Expr::Number(f(value_a, value_b))),
+fn arithmetic_op(a: &Expr, b: &Expr, f: &Fn(&i64, &i64) -> i64) -> Expr {
+    a.as_ref().and_then(|elem_a| match elem_a.as_ref() {
+        Elem::I64(value_a) => b.as_ref().and_then(|elem_b| match elem_b.as_ref() {
+            Elem::I64(value_b) => Some(Rc::new(Elem::I64(f(value_a, value_b)))),
             _ => {
-                println!("Error. {:?} is not a number", print_car(&b));
-                Rc::new(Expr::Nil)
+                println!("Error. {:?} is not a number", print_car(b));
+                None
             }
-        },
+        }),
         _ => {
-            println!("Error. {:?} is not a number", print_car(&a));
-            Rc::new(Expr::Nil)
+            println!("Error. {:?} is not a number", print_car(a));
+            None
         }
-    }
+    })
 }
 
-fn evcond(expr: &Rc<Expr>, env: &Rc<Expr>, global_env: &mut Rc<Expr>) -> Rc<Expr> {
+fn evcond(expr: &Expr, env: &Expr, global_env: &mut Expr) -> Expr {
     let cond = eval(&caar(expr), env, global_env);
-    match *cond {
-        Expr::Nil => evcond(&cdr(expr), env, global_env),
-        _ => eval(&cadar(expr), env, global_env),
+    match cond.as_ref() {
+        None => evcond(&cdr(expr), env, global_env),
+        Some(_) => eval(&cadar(expr), env, global_env),
     }
 }
 
@@ -375,7 +379,7 @@ fn eval(expr: &Expr, env: &Expr, global_env: &mut Expr) -> Expr {
                                     }
                                 }
                                 _ => {
-                                    println!("Error. {:?} is not a function", print_car(car_elem));
+                                    println!("Error. {:?} is not a function", print_car(car1));
                                     None
                                 }
                             })
@@ -391,7 +395,7 @@ fn eval(expr: &Expr, env: &Expr, global_env: &mut Expr) -> Expr {
 }
 
 fn main() {
-    let env: &mut Rc<Expr>= &mut parse( &("((QUOTE QUOTE) (ATOM ATOM) (EQ EQ) (CAR CAR) (CDR CDR) (CONS CONS) (LIST LIST) (COND COND) (PLUS PLUS) (PROD PROD) (DIFF DIFF) (QUOT) (QUOT) (LAMBDA LAMBDA) (MACRO MACRO) (SETQ SETQ) (APPEND APPEND) (REDUCE REDUCE) (LOOP LOOP) (NIL ()))".to_string()) );
+    let env: &mut Expr = &mut parse( &("((QUOTE QUOTE) (ATOM ATOM) (EQ EQ) (CAR CAR) (CDR CDR) (CONS CONS) (LIST LIST) (COND COND) (PLUS PLUS) (PROD PROD) (DIFF DIFF) (QUOT) (QUOT) (LAMBDA LAMBDA) (MACRO MACRO) (SETQ SETQ) (APPEND APPEND) (REDUCE REDUCE) (LOOP LOOP) (NIL ()))".to_string()) );
     loop {
         let input = std::io::stdin();
         for line in input.lock().lines() {
@@ -458,6 +462,8 @@ fn parse_s_expr(expr: &String) -> Vec<String> {
         } else if paren == ')' {
             if depth == 0 {
                 println!("Unmatched open token at {}", pos);
+                result = vec!["NIL"];
+                break;
             }
             depth -= 1;
             if depth == 0 {
