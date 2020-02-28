@@ -177,7 +177,7 @@ fn evlis(arguments: &Expr, env: &Expr, global_env: &mut Expr) -> Expr {
     })
 }
 
-fn arithmetic_op(a: &Expr, b: &Expr, f: &Fn(&i64, &i64) -> i64) -> Expr {
+fn arithmetic_op(a: &Expr, b: &Expr, f: &dyn Fn(&i64, &i64) -> i64) -> Expr {
     a.as_ref().and_then(|elem_a| match elem_a.as_ref() {
         Elem::I64(value_a) => b.as_ref().and_then(|elem_b| match elem_b.as_ref() {
             Elem::I64(value_b) => Some(Rc::new(Elem::I64(f(value_a, value_b)))),
